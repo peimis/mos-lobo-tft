@@ -1,0 +1,26 @@
+author: Miska Peippo <18567301+peimis@users.noreply.github.com>
+type: lib
+description: Mongoose-OS ESP32 TFT lib
+version: 0.1
+
+sources:
+  - src
+
+includes:
+  - include
+
+# filesystem:
+#   - fs
+
+# config_schema:
+
+libs:
+  - name: mos-lobo-spi
+
+tags:
+  - c
+  - js
+  - spi
+  - hw
+
+manifest_version: 2017-09-29
