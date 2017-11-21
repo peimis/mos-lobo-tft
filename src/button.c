@@ -39,35 +39,39 @@ void TFT_Button_init( button_t * const b, const int x, const int y, const int w,
 
 //
 //
-void TFT_Button_draw( const button_t * const  button, const bool inverted )
+void TFT_Button_draw( const button_t * const b, const bool inverted )
 {
 	color_t fill, outline, text;
-	outline = *button->outlinecolor;
+	outline = *b->outlinecolor;
 
 	if(!inverted) {
-		fill    = *button->fillcolor;
-		text    = *button->textcolor;
+		fill    = *b->fillcolor;
+		text    = *b->textcolor;
 	} else {
-		text    = *button->fillcolor;
-		fill    = *button->textcolor;
+		text    = *b->fillcolor;
+		fill    = *b->textcolor;
 	}
 
-  	if (button->r)
+	if (b->r)
   	{
-		TFT_fillRoundRect(button->x, button->y, button->w, button->h, button->r, fill);
-		TFT_drawRoundRect(button->x, button->y, button->w, button->h, button->r, outline);
+		TFT_fillRoundRect(b->x, b->y, b->w, b->h, b->r, fill);
+		TFT_drawRoundRect(b->x, b->y, b->w, b->h, b->r, outline);
   	}
 	else
 	{
-  		TFT_fillRect(button->x, button->y, button->w, button->h, outline);
+		TFT_fillRect(b->x, b->y, b->w, b->h, outline);
 	}
 
 
-	TFT_set_fg(&text);
-	TFT_setFont(button->font, NULL);
-	TFT_print(button->label, button->x, button->y);
-}
+	TFT_setFont(b->font, NULL);
+	const int label_w = TFT_getStringWidth(b->label);
+	const int label_h = TFT_getfontheight();
 
+	TFT_set_fg(&text);
+	TFT_set_bg(&fill);
+
+	TFT_print(b->label, b->x + b->w/2 - label_w/2, b->y + b->h/2 - label_h / 2);
+}
 
 //
 //

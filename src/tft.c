@@ -2960,11 +2960,21 @@ void TFT_set_fg(color_t *color)
 //	memcpy(_fg, color, 3);
 }
 
+void TFT_set_bg(color_t *color)
+{
+	_bg = *color;
+//	memcpy(_bg, color, 3);
+}
+
 color_t *TFT_get_fg(void)
 {
 	return &_fg;
 }
 
+color_t *TFT_get_bg(void)
+{
+	return &_bg;
+}
 
 bool mgos_mos_lobo_tft_init(void) {
   return true;

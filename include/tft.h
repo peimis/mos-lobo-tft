@@ -683,11 +683,13 @@ void getFontCharacters(uint8_t *buf);
  * @brief Set foreground color
  */
 void TFT_set_fg(color_t *color);
+void TFT_set_bg(color_t *color);
 
 /**
- * @brief Set foreground color
+ * @brief Get foreground color
  */
 color_t *TFT_get_fg(void);
+color_t *TFT_get_bg(void);
 
 /**
  * @brief MGOS lib init
