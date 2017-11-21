@@ -108,7 +108,7 @@
 #define TFT_INVERT_ROTATION1        0
 #define TFT_RGB_BGR                 0x08
 
-#define USE_TOUCH                   0
+#define USE_TOUCH                   TOUCH_TYPE_XPT2046
 
 #define PIN_NUM_MISO 19   // SPI MISO
 #define PIN_NUM_MOSI 23   // SPI MOSI

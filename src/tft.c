@@ -640,6 +640,7 @@ static void _draw_ellipse_section(uint16_t x, uint16_t y, uint16_t x0, uint16_t 
 	disp_deselect();
 }
 
+
 //=====================================================================================================
 void TFT_drawEllipse(uint16_t x0, uint16_t y0, uint16_t rx, uint16_t ry, color_t color, uint8_t option)
 {
@@ -1780,7 +1781,7 @@ static int _7seg_height()
 // Returns the string width in pixels.
 // Useful for positions strings on the screen.
 //===============================
-int TFT_getStringWidth(char* str)
+int TFT_getStringWidth(const char* const str)
 {
     int strWidth = 0;
 
@@ -1788,7 +1789,7 @@ int TFT_getStringWidth(char* str)
 	else if (cfont.x_size != 0) strWidth = strlen(str) * cfont.x_size;			// fixed width font
 	else {
 		// calculate the width of the string of proportional characters
-		char* tempStrptr = str;
+		const char *tempStrptr = str;
 		while (*tempStrptr != 0) {
 			if (getCharPtr(*tempStrptr++)) {
 				strWidth += (((fontChar.width > fontChar.xDelta) ? fontChar.width : fontChar.xDelta) + 1);
@@ -1931,7 +1932,7 @@ static void _draw7seg(int16_t x, int16_t y, int8_t num, int16_t w, int16_t l, co
 //==============================================================================
 
 //======================================
-void TFT_print(char *st, int x, int y) {
+void TFT_print(const char * const st, int x, int y) {
 	int stl, i, tmpw, tmph, fh;
 	uint8_t ch;
 
@@ -2952,6 +2953,18 @@ int TFT_read_touch(int *x, int* y, uint8_t raw)
 	return 1;
     #endif
 }
+
+void TFT_set_fg(color_t *color)
+{
+	_fg = *color;
+//	memcpy(_fg, color, 3);
+}
+
+color_t *TFT_get_fg(void)
+{
+	return &_fg;
+}
+
 
 bool mgos_mos_lobo_tft_init(void) {
   return true;

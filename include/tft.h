@@ -482,7 +482,7 @@ int TFT_getfontheight();
  *
  */
 //-------------------------------------
-void TFT_print(char *st, int x, int y);
+void TFT_print(const char *const st, int x, int y);
 
 /*
  * Set atributes for 7 segment vector font
@@ -577,7 +577,7 @@ int TFT_compare_colors(color_t c1, color_t c2);
  * Useful for positions strings on the screen.
  */
 //--------------------------------
-int TFT_getStringWidth(char* str);
+int TFT_getStringWidth(const char* const str);
 
 
 /*
@@ -678,6 +678,16 @@ int compile_font_file(char *fontfile, uint8_t dbg);
  */
 void getFontCharacters(uint8_t *buf);
 
+
+/**
+ * @brief Set foreground color
+ */
+void TFT_set_fg(color_t *color);
+
+/**
+ * @brief Set foreground color
+ */
+color_t *TFT_get_fg(void);
 
 /**
  * @brief MGOS lib init
