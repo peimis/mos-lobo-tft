@@ -81,8 +81,16 @@ float _angleOffset = DEFAULT_ANGLE_OFFSET;
 int	TFT_X = 0;
 int	TFT_Y = 0;
 
-uint32_t tp_calx = 7472920;
-uint32_t tp_caly = 122224794;
+#if USE_TOUCH == TOUCH_TYPE_XPT2046
+uint32_t tp_calx = TP_CALX_XPT2046;
+uint32_t tp_caly = TP_CALY_XPT2046;
+#elif USE_TOUCH == TOUCH_TYPE_STMPE610
+uint32_t tp_calx = TP_CALX_STMPE610;
+uint32_t tp_caly = TP_CALY_STMPE610;
+#else
+uint32_t tp_calx = TP_CALX_XPT2046;
+uint32_t tp_caly = TP_CALY_XPT2046;
+#endif
 
 dispWin_t dispWin = {
   .x1 = 0,
@@ -2764,15 +2772,17 @@ static int tp_get_data_xpt2046(uint8_t type, int samples)
 	if (ts_spi == (void *)NULL) return 0;
 
 	int n, result, val = 0;
+	int avg = 0;
 	uint32_t i = 0;
 	uint32_t vbuf[18];
-	uint32_t minval, maxval, dif;
+	uint32_t minval, maxval, dif=0;
 
     if (samples < 3) samples = 1;
     if (samples > 18) samples = 18;
 
     // one dummy read
     result = touch_get_data(type);
+    avg = result >> 3;
 
     // read data
 	while (i < 10) {
@@ -2780,7 +2790,9 @@ static int tp_get_data_xpt2046(uint8_t type, int samples)
     	maxval = 0;
 		// get values
 		for (n=0;n<samples;n++) {
-		    result = touch_get_data(type);
+		    result = touch_get_data(type) >> 3;
+		    avg = ((avg * 3) + result) / 4;
+
 			if (result < 0) break;
 
 			vbuf[n] = result;
@@ -2792,8 +2804,10 @@ static int tp_get_data_xpt2046(uint8_t type, int samples)
 		if (dif < 40) break;
 		i++;
     }
-	if (result < 0) return -1;
 
+	if (result < 0) return -1;
+	val = avg;
+/*
 	if (samples > 2) {
 		// remove one min value
 		for (n = 0; n < samples; n++) {
@@ -2815,18 +2829,20 @@ static int tp_get_data_xpt2046(uint8_t type, int samples)
 		val /= (samples-2);
 	}
 	else val = vbuf[0];
-
+*/
     return val;
 }
+
 
 //-----------------------------------------------
 static int TFT_read_touch_xpt2046(int *x, int* y)
 {
 	int res = 0, result = -1;
+
 	if (spi_lobo_device_select(ts_spi, 0) != ESP_OK) return 0;
 
     result = tp_get_data_xpt2046(0xB0, 3);  // Z; pressure; touch detect
-	if (result <= 50) goto exit;
+	if (result <= 50)  goto exit;
 
 	// touch panel pressed
 	result = tp_get_data_xpt2046(0xD0, 10);
@@ -2858,13 +2874,9 @@ int TFT_read_touch(int *x, int* y, uint8_t raw)
     int X=0, Y=0;
 
     #if USE_TOUCH == TOUCH_TYPE_XPT2046
-    uint32_t tp_calx = TP_CALX_XPT2046;
-    uint32_t tp_caly = TP_CALY_XPT2046;
    	result = TFT_read_touch_xpt2046(&X, &Y);
    	if (result == 0) return 0;
     #elif USE_TOUCH == TOUCH_TYPE_STMPE610
-    uint32_t tp_calx = TP_CALX_STMPE610;
-    uint32_t tp_caly = TP_CALY_STMPE610;
     uint16_t Xx, Yy, Z=0;
     result = stmpe610_get_touch(&Xx, &Yy, &Z);
     if (result == 0) return 0;
@@ -2881,41 +2893,75 @@ int TFT_read_touch(int *x, int* y, uint8_t raw)
     }
 
     // Calibrate the result
-	int tmp;
-	int xleft   = (tp_calx >> 16) & 0x3FFF;
-	int xright  = tp_calx & 0x3FFF;
-	int ytop    = (tp_caly >> 16) & 0x3FFF;
-	int ybottom = tp_caly & 0x3FFF;
 
-	if (((xright - xleft) <= 0) || ((ybottom - ytop) <= 0)) return 0;
+	// tp_calx		tp_caly
+	// LLLLRRRR 	TTTTBBBB
+	int xmax = (tp_calx >> 16) & 0x3FFF;
+	int xmin = tp_calx & 0x3FFF;
+	int ymax = (tp_caly >> 16) & 0x3FFF;
+	int ymin = tp_caly & 0x3FFF;
+
+	int offset_x = X - xmin;
+	int offset_y = Y - ymin;
+	int range_x = xmax - xmin;
+	int range_y = ymax - ymin;
+
+	//
+	// In 2.8" ILI3941+XPT2046 display X axis reads along the short side of display
+	//
+//	printf("RAW %d:%d | X: %d..%d : Y: %d..%d | W:%d H:%d\n", X, Y, xmin, xmax, ymin, ymax, _width, _height);
+//	printf("offset %d:%d  %d:%d", offset_x, offset_y, (offset_x*1000)/(range_x), (offset_y*1000)/(range_y));
+
+	if (((xmax - xmin) <= 0) || ((ymax - ymin) <= 0)) return 0;
 
     #if USE_TOUCH == TOUCH_TYPE_XPT2046
-        int width = _width;
-        int height = _height;
-        X = ((X - xleft) * height) / (xright - xleft);
-        Y = ((Y - ytop) * width) / (ybottom - ytop);
+		int width = _width;
+		int height = _height;
+
+		switch (orientation) {
+			case PORTRAIT:
+				X = xmax-offset_x;
+				Y = Y;
+				width = _height;
+				height = _width;
+				break;
+
+			case PORTRAIT_FLIP:
+				Y = ymax-offset_y;
+				X = X;
+				width = _height;
+				height = _width;
+				break;
+
+			case LANDSCAPE:
+				height = Y;
+				Y = X;
+				X = height;
+				width = _height;
+				height = _width;
+				break;
+
+			case LANDSCAPE_FLIP:
+				Y = xmax-offset_x;
+				X = ymax-offset_y;
+				width = _height;
+				height = _width;
+				break;
+
+			default:
+				break;
+        }
+
+        X = ((X - xmin) * height) / (xmax - xmin);
+        Y = ((Y - ymin) * width) / (ymax - ymin);
 
         if (X < 0) X = 0;
         if (X > height-1) X = height-1;
         if (Y < 0) Y = 0;
         if (Y > width-1) Y = width-1;
 
-        switch (orientation) {
-            case PORTRAIT:
-                tmp = X;
-                X = width - Y - 1;
-                Y = tmp;
-                break;
-            case PORTRAIT_FLIP:
-                tmp = X;
-                X = Y;
-                Y = height - tmp - 1;
-                break;
-            case LANDSCAPE_FLIP:
-                X = height - X - 1;
-                Y = width - Y - 1;
-                break;
-        }
+//		printf(" scaled %d:%d\n", X, Y);
+
     #elif USE_TOUCH == TOUCH_TYPE_STMPE610
         int width = _width;
         int height = _height;
@@ -2923,8 +2969,8 @@ int TFT_read_touch(int *x, int* y, uint8_t raw)
             width = _height;
             height = _width;
         }
-		X = ((X - xleft) * width) / (xright - xleft);
-		Y = ((Y - ytop) * height) / (ybottom - ytop);
+		X = ((X - xmax) * width) / (xmin - xmax);
+		Y = ((Y - ymax) * height) / (ymin - ymax);
 
 		if (X < 0) X = 0;
 		if (X > width-1) X = width-1;

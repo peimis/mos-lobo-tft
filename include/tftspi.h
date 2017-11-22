@@ -16,8 +16,8 @@
 #define TOUCH_TYPE_XPT2046	1
 #define TOUCH_TYPE_STMPE610	2
 
-#define TP_CALX_XPT2046		7472920
-#define TP_CALY_XPT2046		122224794
+#define TP_CALX_XPT2046		((3700UL << 16) | (450))
+#define TP_CALY_XPT2046		((3800UL << 16) | (310))
 
 #define TP_CALX_STMPE610	21368532
 #define TP_CALY_STMPE610	11800144
@@ -115,7 +115,7 @@
 #define PIN_NUM_CLK  18   // SPI CLOCK pin
 #define PIN_NUM_CS   5    // Display CS pin
 #define PIN_NUM_DC   26   // Display command/data pin
-#define PIN_NUM_TCS  32   // Touch screen CS pin (NOT used if USE_TOUCH=0)
+#define PIN_NUM_TCS  27   // Touch screen CS pin (NOT used if USE_TOUCH=0)
 
 #define PIN_NUM_RST  25   // GPIO used for RESET control (#16)
 #define PIN_NUM_BCKL 0    // GPIO used for backlight control

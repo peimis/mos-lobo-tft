@@ -542,6 +542,7 @@ int IRAM_ATTR touch_get_data(uint8_t type)
     ts_spi->host->hw->data_buf[0] = type;
     _spi_transfer_start(ts_spi, 24, 24);
     uint16_t res = (uint16_t)(ts_spi->host->hw->data_buf[0] >> 8);
+    res = ((res & 0xFF) << 8) | ((res & 0xFF00) >> 8);
 
     spi_lobo_device_deselect(ts_spi);
 
