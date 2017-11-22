@@ -12,7 +12,31 @@ includes:
 # filesystem:
 #   - fs
 
-# config_schema:
+config_schema:
+  - ["tft", "o", {title: "TFT custom settings"}]
+  - ["tft.t_irq_pin", "i", 13, {title: "Touch IRQ pin"}]
+  - ["tft.t_cs_pin", "i", 27, {title: "Touch CS pin"}]
+  - ["tft.reset_pin", "i", 25, {title: "TFT reset pin"}]
+  - ["tft.cs_pin", "i", 5, {title: "TFT CS pin"}]
+  - ["tft.dc_pin", "i", 26, {title: "TFT DC pin"}]
+  - ["tft.bl_pin", "i", -1, {title: "TFT backligt control pin"}]
+  - ["tft.width", "i", 320, {title: "TFT width"}]
+  - ["tft.height", "i", 240, {title: "TFT height"}]
+# 0: PORTRAIT
+# 1: LANDSCAPE
+# 2: PORTRAIT_FLIP
+# 3: LANDSCAPE_FLIP
+  - ["tft.orientation", "i", 3, {title: "Orientation  0: PORTRAIT  1: LANDSCAPE  2: PORTRAIT_FLIP  3: LANDSCAPE_FLIP"}]
+# 0: DISP_TYPE_ILI9341
+# 1: DISP_TYPE_ILI9488
+# 2: DISP_TYPE_ST7789V
+# 3: DISP_TYPE_ST7735
+# 4: DISP_TYPE_ST7735R
+# 5: DISP_TYPE_ST7735B
+  - ["tft.disp_type", "i", 0, {title: "Display type"}]
+  - ["tft.calx", "i", 0, {title: "TFT X calibration value"}]
+  - ["tft.caly", "i", 0, {title: "TFT Y calibration value"}]
+
 
 libs:
   - name: mos-lobo-spi

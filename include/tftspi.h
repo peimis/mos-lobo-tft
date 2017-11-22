@@ -96,8 +96,8 @@
 
 #elif CONFIG_EXAMPLE_DISPLAY_TYPE == 3
 
-// ** Set the correct configuration for Adafruit TFT Feather
-// ---------------------------------------------------------
+// ** Set the correct configuration for ILI9341 with XPT2046 resistive touch
+// -------------------------------------------------------------------------
 #define DEFAULT_DISP_TYPE   DISP_TYPE_ILI9341
 #define DEFAULT_TFT_DISPLAY_WIDTH   240
 #define DEFAULT_TFT_DISPLAY_HEIGHT  320
@@ -109,6 +109,35 @@
 #define TFT_RGB_BGR                 0x08
 
 #define USE_TOUCH                   TOUCH_TYPE_XPT2046
+
+#define PIN_NUM_MISO 19   // SPI MISO
+#define PIN_NUM_MOSI 23   // SPI MOSI
+#define PIN_NUM_CLK  18   // SPI CLOCK pin
+#define PIN_NUM_CS   5    // Display CS pin
+#define PIN_NUM_DC   26   // Display command/data pin
+#define PIN_NUM_TCS  27   // Touch screen CS pin (NOT used if USE_TOUCH=0)
+
+#define PIN_NUM_RST  25   // GPIO used for RESET control (#16)
+#define PIN_NUM_BCKL 0    // GPIO used for backlight control
+#define PIN_BCKL_ON  0    // GPIO value for backlight ON
+#define PIN_BCKL_OFF 1    // GPIO value for backlight OFF
+// ---------------------------------------------------------
+
+#elif CONFIG_EXAMPLE_DISPLAY_TYPE == 4
+
+// ** Set the correct configuration for ST7735
+// -------------------------------------------------------------------------
+#define DEFAULT_DISP_TYPE   DISP_TYPE_ST7735
+#define DEFAULT_TFT_DISPLAY_WIDTH   128
+#define DEFAULT_TFT_DISPLAY_HEIGHT  160
+#define DISP_COLOR_BITS_24          0x66
+#define DEFAULT_GAMMA_CURVE         0
+#define DEFAULT_SPI_CLOCK           26000000
+#define TFT_INVERT_ROTATION         0
+#define TFT_INVERT_ROTATION1        0
+#define TFT_RGB_BGR                 0x08
+
+#define USE_TOUCH                   TOUCH_TYPE_NONE
 
 #define PIN_NUM_MISO 19   // SPI MISO
 #define PIN_NUM_MOSI 23   // SPI MOSI

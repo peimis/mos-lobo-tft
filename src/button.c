@@ -26,11 +26,12 @@
 
 
 struct tft_button_list b_list;
-
+int bid=0;
+mgos_timer_id TFT_Touch_read_timer_id;
 
 // TFT_Button_init() function: upper left corner & size
 //
-void TFT_Button_init( button_t * const b, const int x, const int y, const int w, const int h )
+int TFT_Button_init( button_t * const b, const int x, const int y, const int w, const int h )
 {
 	b->currstate = 0;
 	b->laststate = 0;
@@ -50,6 +51,10 @@ void TFT_Button_init( button_t * const b, const int x, const int y, const int w,
 	b->outlinecolor = &TFT_DARKGREY;
 	b->fillcolor = &TFT_LIGHTGREY;
 	b->textcolor = &TFT_NAVY;
+
+	b->id = ++bid;
+
+	return b->id;
 }
 
 
@@ -95,9 +100,8 @@ void TFT_Button_draw( const button_t * const b, const bool inverted )
 //
 bool TFT_Button_contains( const button_t * const b, const uint16_t x, const uint16_t y)
 {
-	printf("%d:%d ?  %d:%d .. %d:%d\n", x, y, b->x,b->y, b->x+b->w, b->y+b->h);
-  return ((x >= b->x) && (x < (b->x + b->w)) &&
-          (y >= b->y) && (y < (b->y + b->h)));
+//	printf("%d:%d ?  %d:%d .. %d:%d\n", x, y, b->x,b->y, b->x+b->w, b->y+b->h);
+	return ((x >= b->x) && (x < (b->x + b->w)) && (y >= b->y) && (y < (b->y + b->h)));
 }
 
 
@@ -147,7 +151,7 @@ int TFT_Button_add_onEvent( button_t * const b, button_cb fn)
 
 //
 //
-void TFT_checkButtons(const uint16_t x, const uint16_t y)
+void TFT_Buttons_refresh(const int state, const int x, const int y)
 {
 	struct tft_button_cb *tb_cb;
 	button_t *b;
@@ -155,12 +159,12 @@ void TFT_checkButtons(const uint16_t x, const uint16_t y)
 	SLIST_FOREACH(tb_cb, &b_list.tft_buttons, entries)
 	{
 		b = tb_cb->button;
-		if (TFT_Button_contains(b, x, y))
+		if (state && TFT_Button_contains(b, x, y))
 		{
 			TFT_Button_press(b, 1);
 			if (TFT_Button_justPressed(b)) {
 				if (b->cb) {
-					b->cb(1);
+					b->cb(1, b);
 				}
 			}
 		}
@@ -169,9 +173,70 @@ void TFT_checkButtons(const uint16_t x, const uint16_t y)
 			TFT_Button_press(b, 0);
 			if (TFT_Button_justReleased(b)) {
 				if (b->cb) {
-					b->cb(0);
+					b->cb(0, b);
 				}
 			}
 		}
 	}
+}
+
+
+//
+//
+void TFT_Touch_read_timer_cb(void *arg)
+{
+	int tx, ty;
+	bool touch_state = TFT_read_touch(&tx, &ty, false);
+
+	if (touch_state) {
+		TFT_drawCircle(tx, ty, 4, TFT_MAGENTA);
+	}
+
+	TFT_Buttons_refresh(touch_state, tx, ty);
+}
+
+
+//
+//
+void TFT_Touch_intr_handler(const int pin, void *arg)
+{
+	const bool pin_state = mgos_gpio_read(pin);
+	int touch_state = 0;
+	int tx=0, ty=0;
+	(void)arg;
+
+	if (!pin_state)
+	{
+		if (!TFT_Touch_read_timer_id) {
+			TFT_Touch_read_timer_id = mgos_set_timer(200, 1, TFT_Touch_read_timer_cb, NULL);
+		}
+
+		if ((touch_state = TFT_read_touch(&tx, &ty, false))) {
+			TFT_drawCircle(tx, ty, 4, TFT_MAGENTA);
+		}
+	}
+	else
+	{
+		if (TFT_Touch_read_timer_id) {
+			mgos_clear_timer(TFT_Touch_read_timer_id);
+			TFT_Touch_read_timer_id = 0;
+		}
+	}
+	TFT_Buttons_refresh(touch_state, tx, ty);
+}
+
+
+//
+//
+bool TFT_Touch_intr_init(void)
+{
+	const int pin = mgos_sys_config_get_tft_t_irq_pin();
+
+	if (-1 != pin)
+	{
+		LOG(LL_INFO, ("Set TFT touch intr handler for pin '%d'", pin));
+		mgos_gpio_set_int_handler(pin, MGOS_GPIO_INT_EDGE_ANY, TFT_Touch_intr_handler, NULL);
+		mgos_gpio_enable_int(pin);
+	}
+	return true;
 }
