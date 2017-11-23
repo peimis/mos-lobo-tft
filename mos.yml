@@ -19,7 +19,8 @@ config_schema:
   - ["tft.reset_pin", "i", 25, {title: "TFT reset pin"}]
   - ["tft.cs_pin", "i", 5, {title: "TFT CS pin"}]
   - ["tft.dc_pin", "i", 26, {title: "TFT DC pin"}]
-  - ["tft.bl_pin", "i", -1, {title: "TFT backligt control pin"}]
+  - ["tft.bl_pin", "i", 21, {title: "TFT backligt control pin"}]
+#
   - ["tft.width", "i", 320, {title: "TFT width"}]
   - ["tft.height", "i", 240, {title: "TFT height"}]
 # 0: PORTRAIT
@@ -34,11 +35,16 @@ config_schema:
 # 4: DISP_TYPE_ST7735R
 # 5: DISP_TYPE_ST7735B
   - ["tft.disp_type", "i", 0, {title: "Display type"}]
+#
   - ["tft.calx", "i", 0, {title: "TFT X calibration value"}]
   - ["tft.caly", "i", 0, {title: "TFT Y calibration value"}]
+#
+  - ["tft.max_rd_speed", "i", 8000000, {title: "maximum spi clock for display read operations"}]
+
 
 
 libs:
+#  - origin: https://github.com/peimis/mos-lobo-spi
   - name: mos-lobo-spi
 
 tags:
