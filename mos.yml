@@ -5,6 +5,7 @@ version: 0.1
 
 sources:
   - src
+  - src/fonts
 
 includes:
   - include
