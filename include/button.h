@@ -41,7 +41,7 @@ struct tft_button_list
 
 
 /*
- * Initializes a basic button parameters.
+ * Creates a button struct and initializes a basic button parameters.
  *
  * Params:
  *  button: Pointer to button structure
@@ -51,7 +51,7 @@ struct tft_button_list
  *      h : Height of button.
  */
 //-------------------------------------------------------------------------------------
-int TFT_Button_init( button_t * const button, const int x, const int y, const int w, const int h);
+button_t * TFT_Button_init( const int x, const int y, const int w, const int h, const button_cb cb);
 
 
 /*

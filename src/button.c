@@ -1,38 +1,25 @@
 #include <stdio.h>
 #include <time.h>
 
-#include "common/platform.h"
-#include "common/cs_file.h"
-#include "fw/src/mgos_app.h"
-#include "fw/src/mgos_gpio.h"
-#include "fw/src/mgos_sys_config.h"
-#include "fw/src/mgos_timers.h"
-#include "fw/src/mgos_hal.h"
-#include "fw/src/mgos_dlsym.h"
-#include "fw/src/mgos_sntp.h"
-
 #include "mgos.h"
-
-#include "tftspi.h"
 #include "tft.h"
 
 #include "button.h"
 
 /***************************************************************************************
-** Code for the GFX button UI element
-** Grabbed from Adafruit_GFX library and enhanced to handle any label font
 ***************************************************************************************/
 
 
+static struct tft_button_list b_list;
+static int bid=0;
+static mgos_timer_id TFT_Touch_read_timer_id;
 
-struct tft_button_list b_list;
-int bid=0;
-mgos_timer_id TFT_Touch_read_timer_id;
 
-// TFT_Button_init() function: upper left corner & size
+// TFT_Button_init() : xy for upper left corner & size
 //
-int TFT_Button_init( button_t * const b, const int x, const int y, const int w, const int h )
+button_t * TFT_Button_init( const int x, const int y, const int w, const int h, const button_cb fn)
 {
+	button_t *b=(button_t *)calloc(1, sizeof(button_t));
 	b->currstate = 0;
 	b->laststate = 0;
 
@@ -40,12 +27,10 @@ int TFT_Button_init( button_t * const b, const int x, const int y, const int w, 
 	b->y = y;
 	b->w = w;
 	b->h = h;
-
 	b->r = 3;
 
 	b->image = NULL;
 	b->label = NULL;
-	b->cb = NULL;
 	b->font = DEFAULT_FONT;
 
 	b->outlinecolor = &TFT_DARKGREY;
@@ -54,9 +39,11 @@ int TFT_Button_init( button_t * const b, const int x, const int y, const int w, 
 
 	b->id = ++bid;
 
-	return b->id;
-}
+	b->cb = fn;
+	TFT_Button_add_onEvent(b, fn);
 
+	return b;
+}
 
 
 //
@@ -95,6 +82,7 @@ void TFT_Button_draw( const button_t * const b, const bool inverted )
 
 	TFT_print(b->label, b->x + b->w/2 - label_w/2, b->y + b->h/2 - label_h / 2);
 }
+
 
 //
 //
@@ -140,8 +128,6 @@ int TFT_Button_add_onEvent( button_t * const b, button_cb fn)
 
 	if (tb_cb) {
 		tb_cb->button = b;
-		b->cb = fn;
-
 		SLIST_INSERT_HEAD(&b_list.tft_buttons, tb_cb, entries);
 	}
 
@@ -186,10 +172,17 @@ void TFT_Buttons_refresh(const int state, const int x, const int y)
 void TFT_Touch_read_timer_cb(void *arg)
 {
 	int tx, ty;
+	int pin = (int)arg;
 	bool touch_state = TFT_read_touch(&tx, &ty, false);
 
 	if (touch_state) {
-		TFT_drawCircle(tx, ty, 4, TFT_MAGENTA);
+		TFT_drawCircle(tx, ty, 3, TFT_GREEN);
+	} else {
+		if (TFT_Touch_read_timer_id) {
+			mgos_clear_timer(TFT_Touch_read_timer_id);
+			TFT_Touch_read_timer_id = 0;
+		}
+		mgos_gpio_enable_int(pin);
 	}
 
 	TFT_Buttons_refresh(touch_state, tx, ty);
@@ -203,28 +196,22 @@ void TFT_Touch_intr_handler(const int pin, void *arg)
 	const bool pin_state = mgos_gpio_read(pin);
 	int touch_state = 0;
 	int tx=0, ty=0;
-	(void)arg;
 
 	if (!pin_state)
 	{
+		mgos_gpio_disable_int(pin);
+
 		if (!TFT_Touch_read_timer_id) {
-			TFT_Touch_read_timer_id = mgos_set_timer(200, 1, TFT_Touch_read_timer_cb, NULL);
+			TFT_Touch_read_timer_id = mgos_set_timer(100, 1, TFT_Touch_read_timer_cb, (void *)pin);
 		}
 
 		if ((touch_state = TFT_read_touch(&tx, &ty, false))) {
-			TFT_drawCircle(tx, ty, 4, TFT_MAGENTA);
+			TFT_drawCircle(tx, ty, 5, TFT_MAGENTA);
 		}
 	}
-	else
-	{
-		if (TFT_Touch_read_timer_id) {
-			mgos_clear_timer(TFT_Touch_read_timer_id);
-			TFT_Touch_read_timer_id = 0;
-		}
-	}
+
 	TFT_Buttons_refresh(touch_state, tx, ty);
 }
-
 
 //
 //
@@ -235,7 +222,9 @@ bool TFT_Touch_intr_init(void)
 	if (-1 != pin)
 	{
 		LOG(LL_INFO, ("Set TFT touch intr handler for pin '%d'", pin));
-		mgos_gpio_set_int_handler(pin, MGOS_GPIO_INT_EDGE_ANY, TFT_Touch_intr_handler, NULL);
+		mgos_gpio_set_mode(pin, MGOS_GPIO_MODE_INPUT);
+		mgos_gpio_set_pull(pin, MGOS_GPIO_PULL_NONE);
+		mgos_gpio_set_int_handler(pin, MGOS_GPIO_INT_EDGE_NEG, TFT_Touch_intr_handler, NULL);
 		mgos_gpio_enable_int(pin);
 	}
 	return true;

@@ -2774,7 +2774,7 @@ static int tp_get_data_xpt2046(uint8_t type, int samples)
 	int n, result, val = 0;
 	int avg = 0;
 	uint32_t i = 0;
-	uint32_t vbuf[18];
+//	uint32_t vbuf[18];
 	uint32_t minval, maxval, dif=0;
 
     if (samples < 3) samples = 1;
@@ -2795,7 +2795,7 @@ static int tp_get_data_xpt2046(uint8_t type, int samples)
 
 			if (result < 0) break;
 
-			vbuf[n] = result;
+//			vbuf[n] = result;
 			if (result < minval) minval = result;
 			if (result > maxval) maxval = result;
 		}
@@ -2952,8 +2952,8 @@ int TFT_read_touch(int *x, int* y, uint8_t raw)
 				break;
         }
 
-        X = ((X - xmin) * height) / (xmax - xmin);
-        Y = ((Y - ymin) * width) / (ymax - ymin);
+        X = ((X - xmin) * height) / (range_x);
+        Y = ((Y - ymin) * width) / (range_y);
 
         if (X < 0) X = 0;
         if (X > height-1) X = height-1;
