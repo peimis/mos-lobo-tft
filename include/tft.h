@@ -691,6 +691,12 @@ void TFT_set_bg(color_t *color);
 color_t *TFT_get_fg(void);
 color_t *TFT_get_bg(void);
 
+
+/**
+ * @brief Set backlight state
+ */
+void TFT_setBacklight(bool enabled);
+
 /**
  * @brief MGOS lib init
  */

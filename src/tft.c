@@ -19,6 +19,8 @@
 #include "esp_heap_caps.h"
 #include "tftspi.h"
 
+#include "mgos.h"
+
 
 #define DEG_TO_RAD 0.01745329252
 #define RAD_TO_DEG 57.295779513
@@ -67,7 +69,7 @@ const color_t TFT_PINK        = { 252, 192, 202 };
 
 // ==============================================================
 // ==== Set default values of global variables ==================
-uint8_t orientation = LANDSCAPE;// screen orientation
+uint8_t _orientation = LANDSCAPE;// screen orientation
 uint16_t font_rotate = 0;		// font rotation
 uint8_t	font_transparent = 0;
 uint8_t	font_forceFixed = 0;
@@ -2061,7 +2063,7 @@ void TFT_setRotation(uint8_t rot) {
 		}
     }
 	else {
-		orientation = rot;
+		_orientation = rot;
         _tft_setRotation(rot);
 	}
 
@@ -2160,6 +2162,7 @@ color_t HSBtoRGB(float _hue, float _sat, float _brightness) {
 //=====================================================================
 void TFT_setclipwin(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2)
 {
+	printf("==== TFT_setclipwin : %d %d : %d %d  size=%dx%d\n", x1, y1, x2, y2, _width, _height);
 	dispWin.x1 = x1;
 	dispWin.y1 = y1;
 	dispWin.x2 = x2;
@@ -2775,9 +2778,46 @@ color_t *TFT_get_bg(void)
 	return &_bg;
 }
 
+void TFT_setBacklight(bool enabled)
+{
+	int pin;
+
+	if (-1 != (pin = mgos_sys_config_get_tft_bl_pin())) {
+		mgos_gpio_set_mode(pin, MGOS_GPIO_MODE_OUTPUT);
+		mgos_gpio_write(pin, enabled);
+	}
+}
+
 // Mongoose-OS init
 //
-bool mgos_mos_lobo_tft_init(void) {
+bool mgos_mos_lobo_tft_init(void)
+{
+	printf("TFT: pin init...\r\n");
+	TFT_PinsInit();
+
+	printf("TFT: SPI init...\r\n");
+	TFT_SPI_Init();
+
+	// ================================
+	// ==== Initialize the Display ====
+	//
+	printf("TFT: display init...\r\n");
+	_orientation = mgos_sys_config_get_tft_orientation();
+	TFT_display_init();
+
+	// ---- Detect maximum read speed ----
+	TFT_SPI_max_speed();
+
+	printf("---------------------\r\n");
+	printf("TFT: SPI initialized :\r\n");
+	printf("TFT: type=%d orientation=%d :\r\n", tft_disp_type, _orientation);
+	printf("TFT: size=%dx%d :\r\n", _width, _height);
+	printf("TFT: SPI initialized :\r\n");
+	printf("---------------------\r\n");
+
+	// TODO: setRotation clears the display but it's already done in display_init ..
+	TFT_setRotation( _orientation );
+	TFT_setBacklight( true );
 
 	return true;
 }

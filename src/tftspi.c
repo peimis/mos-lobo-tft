@@ -15,6 +15,9 @@
 #include "esp_heap_caps.h"
 #include "soc/spi_reg.h"
 
+#include "mgos.h"
+
+
 
 // ====================================================
 // ==== Global variables, default values ==============
@@ -22,14 +25,13 @@
 // Converts colors to grayscale if set to 1
 uint8_t gray_scale = 0;
 // Spi clock for reading data from display memory in Hz
-uint32_t max_rdclock = 8000000;
-
+uint32_t max_rdclock = 4000000;
 // Default display dimensions
-int _width = DEFAULT_TFT_DISPLAY_WIDTH;
-int _height = DEFAULT_TFT_DISPLAY_HEIGHT;
+int _width = DEFAULT_TFT_DISPLAY_WIDTH;  		// smaller dimension
+int _height = DEFAULT_TFT_DISPLAY_HEIGHT;		// larger dimension
 
 // Display type, DISP_TYPE_ILI9488 or DISP_TYPE_ILI9341
-uint8_t tft_disp_type = DEFAULT_DISP_TYPE;
+uint8_t tft_disp_type =  DEFAULT_DISP_TYPE;
 
 // Spi device handles for display and touch screen
 spi_lobo_device_handle_t disp_spi = NULL;
@@ -40,6 +42,14 @@ spi_lobo_device_handle_t ts_spi = NULL;
 
 static color_t *trans_cline = NULL;
 static uint8_t _dma_sending = 0;
+
+
+// ==================================================
+// Define which spi bus to use VSPI_HOST or HSPI_HOST
+#define SPI_BUS VSPI_HOST
+static spi_lobo_device_handle_t spi;
+
+
 
 // RGB to GRAYSCALE constants
 // 0.2989  0.5870  0.1140
@@ -844,6 +854,10 @@ void _tft_setRotation(uint8_t rot) {
 //=================
 void TFT_PinsInit()
 {
+	int pin;
+
+	max_rdclock = mgos_sys_config_get_tft_max_rd_speed();
+
     // Route all used pins to GPIO control
     gpio_pad_select_gpio(PIN_NUM_CS);
     gpio_pad_select_gpio(PIN_NUM_MISO);
@@ -856,23 +870,35 @@ void TFT_PinsInit()
     gpio_set_direction(PIN_NUM_CS, GPIO_MODE_OUTPUT);
     gpio_set_direction(PIN_NUM_MOSI, GPIO_MODE_OUTPUT);
     gpio_set_direction(PIN_NUM_CLK, GPIO_MODE_OUTPUT);
-    gpio_set_direction(PIN_NUM_DC, GPIO_MODE_OUTPUT);
-    gpio_set_level(PIN_NUM_DC, 0);
-#if USE_TOUCH
-    gpio_pad_select_gpio(PIN_NUM_TCS);
-    gpio_set_direction(PIN_NUM_TCS, GPIO_MODE_OUTPUT);
-#endif    
+
+//    gpio_set_direction(PIN_NUM_DC, GPIO_MODE_OUTPUT);
+//    gpio_set_level(PIN_NUM_DC, 0);
+   	if (-1 != (pin = mgos_sys_config_get_tft_dc_pin())) {
+		mgos_gpio_set_mode(pin, MGOS_GPIO_MODE_OUTPUT);
+		mgos_gpio_write(pin, 1);
+	}
+
+
 #if PIN_NUM_BCKL
-    gpio_pad_select_gpio(PIN_NUM_BCKL);
-    gpio_set_direction(PIN_NUM_BCKL, GPIO_MODE_OUTPUT);
-    gpio_set_level(PIN_NUM_BCKL, PIN_BCKL_OFF);
+    // gpio_pad_select_gpio(PIN_NUM_BCKL);
+    // gpio_set_direction(PIN_NUM_BCKL, GPIO_MODE_OUTPUT);
+    // gpio_set_level(PIN_NUM_BCKL, PIN_BCKL_OFF);
 #endif
+	if (-1 != (pin = mgos_sys_config_get_tft_bl_pin())) {
+		mgos_gpio_set_mode(pin, MGOS_GPIO_MODE_OUTPUT);
+		mgos_gpio_write(pin, 0);
+	}
 
 #if PIN_NUM_RST
-    gpio_pad_select_gpio(PIN_NUM_RST);
-    gpio_set_direction(PIN_NUM_RST, GPIO_MODE_OUTPUT);
-    gpio_set_level(PIN_NUM_RST, 0);
+    // gpio_pad_select_gpio(PIN_NUM_RST);
+    // gpio_set_direction(PIN_NUM_RST, GPIO_MODE_OUTPUT);
+    // gpio_set_level(PIN_NUM_RST, 0);
 #endif
+	if (-1 != (pin = mgos_sys_config_get_tft_reset_pin())) {
+		mgos_gpio_set_mode(pin, MGOS_GPIO_MODE_OUTPUT);
+		mgos_gpio_write(pin, 1);
+	}
+
 }
 
 // Initialize the display
@@ -880,6 +906,17 @@ void TFT_PinsInit()
 void TFT_display_init()
 {
     esp_err_t ret;
+	int pin;
+
+	// Default display dimensions
+	_width = mgos_sys_config_get_tft_width();  		// smaller dimension
+	_height = mgos_sys_config_get_tft_height();		// larger dimension
+
+	// Display type, DISP_TYPE_ILI9488 or DISP_TYPE_ILI9341
+	tft_disp_type =  mgos_sys_config_get_tft_disp_type();
+
+	printf("==== TFT_display_init type=%d size=%dx%d orientation=%d\n", tft_disp_type, _width, _height, mgos_sys_config_get_tft_orientation());
+
 
 #if PIN_NUM_RST
     //Reset the display
@@ -922,13 +959,126 @@ void TFT_display_init()
 	assert(ret==ESP_OK);
 
 	// Clear screen
-    _tft_setRotation(PORTRAIT);
+    _tft_setRotation( mgos_sys_config_get_tft_orientation() );
 	TFT_pushColorRep(0, 0, _width-1, _height-1, (color_t){0,0,0}, (uint32_t)(_height*_width));
 
 	///Enable backlight
 #if PIN_NUM_BCKL
-    gpio_set_level(PIN_NUM_BCKL, PIN_BCKL_ON);
+//    gpio_set_level(PIN_NUM_BCKL, PIN_BCKL_ON);
 #endif
+
 }
 
 
+
+
+//
+//
+void TFT_SPI_Init(void)
+{
+
+	esp_err_t ret;
+
+	// ====  CONFIGURE SPI DEVICES(s)  ====================================================================================
+
+	spi_lobo_bus_config_t buscfg={
+		.miso_io_num=PIN_NUM_MISO,				// set SPI MISO pin
+		.mosi_io_num=PIN_NUM_MOSI,				// set SPI MOSI pin
+		.sclk_io_num=PIN_NUM_CLK,				// set SPI CLK pin
+		.quadwp_io_num=-1,
+		.quadhd_io_num=-1,
+		.max_transfer_sz = 6*1024,
+	};
+	spi_lobo_device_interface_config_t devcfg={
+		.clock_speed_hz=8000000,                // Initial clock out at 8 MHz
+		.mode=0,                                // SPI mode 0
+		.spics_io_num=-1,                       // we will use external CS pin
+		.spics_ext_io_num=PIN_NUM_CS,           // external CS pin
+		.flags=SPI_DEVICE_HALFDUPLEX,           // ALWAYS SET  to HALF DUPLEX MODE!! for display spi
+	};
+
+#if USE_TOUCH == TOUCH_TYPE_XPT2046
+	spi_lobo_device_handle_t tsspi = NULL;
+
+	spi_lobo_device_interface_config_t tsdevcfg={
+		.clock_speed_hz=2500000,                //Clock out at 2.5 MHz
+		.mode=0,                                //SPI mode 0
+//        .spics_io_num=PIN_NUM_TCS,              //Touch CS pin
+//		.spics_ext_io_num=-1,                   //Not using the external CS
+		.spics_io_num=-1,   		            //Touch CS pin
+		.spics_ext_io_num=PIN_NUM_TCS,          //Not using the external CS
+		//.command_bits=8,                      //1 byte command
+	};
+#elif USE_TOUCH == TOUCH_TYPE_STMPE610
+	spi_lobo_device_handle_t tsspi = NULL;
+
+	spi_lobo_device_interface_config_t tsdevcfg={
+		.clock_speed_hz=1000000,                //Clock out at 1 MHz
+		.mode=STMPE610_SPI_MODE,                //SPI mode 0
+		.spics_io_num=PIN_NUM_TCS,              //Touch CS pin
+		.spics_ext_io_num=-1,                   //Not using the external CS
+		.flags = 0,
+	};
+#endif
+
+	// ====================================================================================================================
+
+	vTaskDelay(500 / portTICK_RATE_MS);
+	printf("\r\n==============================\r\n");
+	printf("TFT display DEMO, LoBo 10/2017\r\n");
+	printf("==============================\r\n");
+	printf("Pins used: miso=%d, mosi=%d, sck=%d, cs=%d\r\n", PIN_NUM_MISO, PIN_NUM_MOSI, PIN_NUM_CLK, PIN_NUM_CS);
+#if USE_TOUCH > TOUCH_TYPE_NONE
+	printf(" Touch CS: %d\r\n", PIN_NUM_TCS);
+#endif
+	printf("==============================\r\n\r\n");
+
+	// ==================================================================
+	// ==== Initialize the SPI bus and attach the LCD to the SPI bus ====
+
+	ret=spi_lobo_bus_add_device(SPI_BUS, &buscfg, &devcfg, &spi);
+	assert(ret==ESP_OK);
+	printf("SPI: display device added to spi bus (%d)\r\n", SPI_BUS);
+	disp_spi = spi;
+
+	// ==== Test select/deselect ====
+	ret = spi_lobo_device_select(spi, 1);
+	assert(ret==ESP_OK);
+	ret = spi_lobo_device_deselect(spi);
+	assert(ret==ESP_OK);
+
+	printf("SPI: attached display device, speed=%u\r\n", spi_lobo_get_speed(spi));
+	printf("SPI: bus uses native pins: %s\r\n", spi_lobo_uses_native_pins(spi) ? "true" : "false");
+
+#if USE_TOUCH > TOUCH_TYPE_NONE
+	// =====================================================
+	// ==== Attach the touch screen to the same SPI bus ====
+
+	ret=spi_lobo_bus_add_device(SPI_BUS, &buscfg, &tsdevcfg, &tsspi);
+	assert(ret==ESP_OK);
+	printf("SPI: touch screen device added to spi bus (%d)\r\n", SPI_BUS);
+	ts_spi = tsspi;
+
+	// ==== Test select/deselect ====
+	ret = spi_lobo_device_select(tsspi, 1);
+	assert(ret==ESP_OK);
+	ret = spi_lobo_device_deselect(tsspi);
+	assert(ret==ESP_OK);
+
+	printf("SPI: attached TS device, speed=%u\r\n", spi_lobo_get_speed(tsspi));
+#endif
+
+}
+
+
+//
+//
+void TFT_SPI_max_speed(void)
+{
+	max_rdclock = find_rd_speed();
+	printf("SPI: Max rd speed = %u\r\n", max_rdclock);
+
+	// ==== Set SPI clock used for display operations ====
+	spi_lobo_set_speed(spi, DEFAULT_SPI_CLOCK);
+	printf("SPI: Changed speed to %u\r\n", spi_lobo_get_speed(spi));
+}

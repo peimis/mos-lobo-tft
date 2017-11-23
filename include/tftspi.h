@@ -704,4 +704,8 @@ uint32_t stmpe610_getID();
 
 // ===============================================================================
 
+
+void TFT_SPI_max_speed(void);
+void TFT_SPI_Init(void);
+
 #endif
